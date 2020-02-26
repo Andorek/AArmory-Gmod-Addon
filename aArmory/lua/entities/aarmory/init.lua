@@ -3,7 +3,7 @@ AddCSLuaFile( "shared.lua" )
 
 include( "shared.lua" )
 
-util.AddNetworkString( "useEntCop" )
+util.AddNetworkString( "useEnt" )
 util.AddNetworkString( "giveWeapon" )
 
 function ENT:Initialize()
@@ -13,19 +13,10 @@ function ENT:Initialize()
 	self:SetMoveType( SOLID_VPHYSICS )
     self:SetUseType( SIMPLE_USE )
 
-    local s -- Doesn't work on map loaded ents (need to make sound after client connects?)
-    if AARMORY.Settings.useCustomSoundfile then s = AARMORY.Settings.customSoundfile else s = "ambient/alarms/alarm1.wav" end
-    self.alarmSound = CreateSound(self, s)
-
     local phys = self:GetPhysicsObject()
     if phys:IsValid() then phys:EnableMotion( false ) end
 
 end
-
-local function makeSound(ply)
-    
-end
-hook.Add("PlayerConnect", "makeSound", makeSound)
 
 local function saveEnt( ply, text, team )
     local posTable = {}
@@ -90,12 +81,6 @@ end
 local usePly
 function ENT:Use( ply )
     usePly = ply
-    
-    if ply:isCP() then
-        net.Start( "useEntCop" )
-        net.Send( ply )
-        return
-    end
 
     local cpCount = 0
     for k, v in pairs( player.GetAll() ) do
@@ -104,58 +89,69 @@ function ENT:Use( ply )
         end
     end
 
+    local isCop
     local plyJob = ply:getJobTable().command
-    for k, v in pairs( AARMORY.Settings.robbers ) do
-        if v == plyJob then
-            if cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then -- Checks cop amount
-                DarkRP.notify( ply, 0, 5, "There are not enough police online!" )
-                return
-            elseif timer.Exists( self:EntIndex() .. "aarmoryDelay" ) and timer.TimeLeft( self:EntIndex() .. "aarmoryDelay" ) != nil then -- Checks if armory is on cooldown
-                DarkRP.notify( ply, 0, 5, "The armory is on cooldown!" )
-                return
-            elseif timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) and timer.TimeLeft( self:EntIndex() .. "aarmoryRobbing" ) != nil then -- Checks if the armory is already being robbed
-                DarkRP.notify( ply, 0, 5, "The armory is already being robbed!" )
-                return
-            end
+    if ply:isCP() then
+        isCop = true
+    else
+        for k, v in pairs( AARMORY.Settings.robbers ) do
+            if v == plyJob then
+                isCop = false
+                if cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then -- Checks cop amount
+                    DarkRP.notify( ply, 0, 5, "There are not enough police online!" )
+                    return
+                elseif timer.Exists( self:EntIndex() .. "aarmoryDelay" ) and timer.TimeLeft( self:EntIndex() .. "aarmoryDelay" ) != nil then -- Checks if armory is on cooldown
+                    DarkRP.notify( ply, 0, 5, "The armory is on cooldown!" )
+                    return
+                elseif timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) and timer.TimeLeft( self:EntIndex() .. "aarmoryRobbing" ) != nil then -- Checks if the armory is already being robbed
+                    DarkRP.notify( ply, 0, 5, "The armory is already being robbed!" )
+                    return
+                end
 
-            if !timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then
-                self.alarmSound:Play()
-
-                timer.Create( self:EntIndex() .. "aarmoryRobbing", AARMORY.Settings.robTimer, 1, function()
-
-                    ply:addMoney( AARMORY.Settings.rewardMoney )
-
-                    for k, v in SortedPairsByMemberValue(AARMORY.weaponTable, "printName", true) do
-                        self.alarmSound:Stop()
-                        aarmorySpawnShipment( ply, v.printName, v.amount, k, self:GetPos() + self:GetForward() * 50 )
-
-                        if !timer.Exists( self:EntIndex() .. "aarmoryDelay" ) then
-                            timer.Create( self:EntIndex() .. "aarmoryDelay", AARMORY.Settings.robCooldown, 1, function() end )
-                        else
-                            timer.Start( self:EntIndex() .. "aarmoryDelay" )
+                if !timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then
+                    self:SetNWBool("isRobbingN", true)
+                    timer.Create( self:EntIndex() .. "aarmoryRobbing", AARMORY.Settings.robTimer, 1, function()
+    
+                        ply:addMoney( AARMORY.Settings.rewardMoney )
+                        self:SetNWBool("isRobbingN", false)
+    
+                        for k, v in SortedPairsByMemberValue(AARMORY.weaponTable, "printName", true) do
+                            aarmorySpawnShipment( ply, v.printName, v.amount, k, self:GetPos() + self:GetForward() * 50 )
+    
+                            if !timer.Exists( self:EntIndex() .. "aarmoryDelay" ) then
+                                timer.Create( self:EntIndex() .. "aarmoryDelay", AARMORY.Settings.robCooldown, 1, function() end )
+                            else
+                                timer.Start( self:EntIndex() .. "aarmoryDelay" )
+                            end
                         end
-                    end
-
-                end )
-
-            elseif timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then -- I don't need to check if the timer is running or not here as that's done at the top of this function.
-                self.alarmSound:Play()
-                timer.Start( self:EntIndex() .. "aarmoryRobbing" )
+    
+                    end )
+    
+                elseif timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then -- I don't need to check if the timer is running or not here as that's done at the top of this function.
+                    if !self:GetNWBool("isRobbingN") then self:SetNWBool("isRobbingN", true) end
+                    timer.Start( self:EntIndex() .. "aarmoryRobbing" )
+                end
+                
             end
-            
         end
     end
 
+    net.Start( "useEnt" )
+        net.WriteBool(isCop)
+        net.WriteString(plyJob)
+        net.WriteEntity(self)
+    net.Send( ply )
+    
 end
 
 function ENT:Think()
-
     if timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) and timer.TimeLeft( self:EntIndex() .. "aarmoryRobbing" ) != nil then
         local dist = AARMORY.Settings.cancelRobDistance
         
-        if usePly:GetPos():DistToSqr( self:GetPos() ) > ( dist * dist ) then -- Checks player distance from armory and cancels robber if it is too far
-            if self.alarmSound:IsPlaying() then self.alarmSound:Stop() end
-            timer.Stop( self:EntIndex() .. "aarmoryRobbing" )
+        if usePly:GetPos():DistToSqr( self:GetPos() ) > ( dist * dist ) or !usePly:Alive() then -- Checks player distance from armory and cancels robber if it is too far
+            self:SetNWBool("isRobbingN", false)
+            
+            timer.Stop(self:EntIndex() .. "aarmoryRobbing")
 
             if !timer.Exists( self:EntIndex() .. "aarmoryDelay" ) then -- Starts the cooldown if the robbery is aborted in this way.
                 timer.Create( self:EntIndex() .. "aarmoryDelay", AARMORY.Settings.robCooldown, 1, function() end )
@@ -163,7 +159,11 @@ function ENT:Think()
                 timer.Start( self:EntIndex() .. "aarmoryDelay" )
             end
 
-            DarkRP.notify( usePly, 0, 5, "You went too far from the armory!" )
+            if !usePly:Alive() then 
+                DarkRP.notify( usePly, 0, 5, "You failed the robbery!" )
+            else 
+                DarkRP.notify( usePly, 0, 5, "You went too far from the armory!" )
+            end
         end
     end
 
@@ -178,7 +178,7 @@ function ENT:OnRemove()
         timer.Remove( self:EntIndex() .. "aarmoryDelay" )
     end
 
-    if self.alarmSound:IsPlaying() then self.alarmSound:Stop() end
+    if self:GetNWBool("isRobbingN") then self:SetNWBool("isRobbingN", false) end
 end
 
 net.Receive("giveWeapon", function( len, ply )
