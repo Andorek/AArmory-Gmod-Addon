@@ -88,15 +88,16 @@ function ENT:Use( ply )
             cpCount = cpCount + 1
         end
     end
-
-    local isCop
+    
     local plyJob = ply:getJobTable().command
     if ply:isCP() then
-        isCop = true
+        net.Start( "useEnt" )
+            net.WriteString(plyJob)
+            net.WriteEntity(self)
+        net.Send( ply )
     else
         for k, v in pairs( AARMORY.Settings.robbers ) do
             if v == plyJob then
-                isCop = false
                 if cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then -- Checks cop amount
                     DarkRP.notify( ply, 0, 5, "There are not enough police online!" )
                     return
@@ -109,11 +110,11 @@ function ENT:Use( ply )
                 end
 
                 if !timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then
-                    self:SetNWBool("isRobbingN", true)
+                    self:SetIsRobbing(true)
                     timer.Create( self:EntIndex() .. "aarmoryRobbing", AARMORY.Settings.robTimer, 1, function()
     
                         ply:addMoney( AARMORY.Settings.rewardMoney )
-                        self:SetNWBool("isRobbingN", false)
+                        self:SetIsRobbing(false)
     
                         for k, v in SortedPairsByMemberValue(AARMORY.weaponTable, "printName", true) do
                             aarmorySpawnShipment( ply, v.printName, v.amount, k, self:GetPos() + self:GetForward() * 50 )
@@ -128,19 +129,13 @@ function ENT:Use( ply )
                     end )
     
                 elseif timer.Exists( self:EntIndex() .. "aarmoryRobbing" ) then -- I don't need to check if the timer is running or not here as that's done at the top of this function.
-                    if !self:GetNWBool("isRobbingN") then self:SetNWBool("isRobbingN", true) end
+                    if !self:GetIsRobbing() then self:SetIsRobbing(true) end
                     timer.Start( self:EntIndex() .. "aarmoryRobbing" )
                 end
                 
             end
         end
     end
-
-    net.Start( "useEnt" )
-        net.WriteBool(isCop)
-        net.WriteString(plyJob)
-        net.WriteEntity(self)
-    net.Send( ply )
     
 end
 
@@ -149,7 +144,7 @@ function ENT:Think()
         local dist = AARMORY.Settings.cancelRobDistance
         
         if usePly:GetPos():DistToSqr( self:GetPos() ) > ( dist * dist ) or !usePly:Alive() then -- Checks player distance from armory and cancels robber if it is too far
-            self:SetNWBool("isRobbingN", false)
+            self:SetIsRobbing(false)
             
             timer.Stop(self:EntIndex() .. "aarmoryRobbing")
 
@@ -178,7 +173,7 @@ function ENT:OnRemove()
         timer.Remove( self:EntIndex() .. "aarmoryDelay" )
     end
 
-    if self:GetNWBool("isRobbingN") then self:SetNWBool("isRobbingN", false) end
+    if self:GetIsRobbing() then self:SetIsRobbing(false) end
 end
 
 net.Receive("giveWeapon", function( len, ply )
@@ -191,22 +186,40 @@ net.Receive("giveWeapon", function( len, ply )
             canGetWeapon = true
         end )
     elseif timer.Exists( "weaponTimer" .. ply:SteamID() ) then
-        canGetWeapon = false
+        canGetWeapon = nil
         if timer.TimeLeft( "weaponTimer" .. ply:SteamID() ) == nil then
             timer.Start( "weaponTimer" .. ply:SteamID() )
         end
     end
 
-    if canGetWeapon and !ply:HasWeapon( weapon ) then
-        ply:Give( weapon )
-    else
-        if ply:HasWeapon( weapon ) then
-            DarkRP.notify( ply, 0, 5, "You already have a " .. weaponPrintName )
-        elseif timer.TimeLeft( "weaponTimer" ) != nil then
-            DarkRP.notify( ply, 0, 5, "You have to wait " .. timer.TimeLeft("weaponTimer") .. " seconds before getting another gun." )
+    local nToggle = nil
+    local nTest -- Can't be canGetWeapon as that interferes with what the timers set.
+    for k, v in pairs(AARMORY.weaponTable) do -- Protection from people networking different guns from what are supposed to be given. This should be the last thing that can change canGetWeapon.
+        if weapon != k and !nToggle then
+            nTest = nil
         else
-            DarkRP.notify( ply, 0, 5, "You cannot equip " .. weaponPrintName )
+            nTest = true 
+            nToggle = true
         end
     end
+
+    if !nTest then
+        print(ply:Nick() .. " tried to spawn an illegal weapon.")
+        return
+    elseif ply:HasWeapon( weapon ) then
+        DarkRP.notify( ply, 0, 5, "You already have the weapon " .. weaponPrintName .. "." )
+        return
+    elseif !canGetWeapon or !ply:isCP() then
+        if timer.TimeLeft("weaponTimer" .. ply:SteamID()) != nil then -- Has to be here otherwise timer keeps restarting itself.
+            DarkRP.notify( ply, 0, 5, "You have to wait " .. math.Round(timer.TimeLeft("weaponTimer" .. ply:SteamID())) .. " seconds before getting another weapon.")
+        else
+            DarkRP.notify( ply, 0, 5, "You cannot equip " .. weaponPrintName .. ".")
+        end
+        return
+        print("Test3")
+    else
+        ply:Give( weapon )
+    end
+    
 
 end)
