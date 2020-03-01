@@ -194,7 +194,7 @@ net.Receive("giveWeapon", function( len, ply )
 
     local nToggle = nil
     local nTest -- Can't be canGetWeapon as that interferes with what the timers set.
-    for k, v in pairs(AARMORY.weaponTable) do -- Protection from people networking different guns from what are supposed to be given. This should be the last thing that can change canGetWeapon.
+    for k, v in pairs(AARMORY.weaponTable) do -- Protection from people networking different guns from what are supposed to be given.
         if weapon != k and !nToggle then
             nTest = nil
         else
@@ -216,7 +216,6 @@ net.Receive("giveWeapon", function( len, ply )
             DarkRP.notify( ply, 0, 5, "You cannot equip " .. weaponPrintName .. ".")
         end
         return
-        print("Test3")
     else
         ply:Give( weapon )
     end

@@ -14,7 +14,7 @@ AARMORY.Settings.robCooldown = 10
 AARMORY.Settings.cancelRobDistance = 900 -- How far away the player has to be to cancel robbing the armory.
 
 AARMORY.Settings.weaponTimer = 5 -- How long it takes for the cp to be able to grab another gun
-AARMORY.Settings.copAmount = 0 -- Amount of cops that need to be on before the armory can get robbed.
+AARMORY.Settings.copAmount = 0 -- Amount of cops that need to be on before the armory can get robbed. (Put 0 to disable).
 
 AARMORY.Settings.rewardMoney = 5000
 
