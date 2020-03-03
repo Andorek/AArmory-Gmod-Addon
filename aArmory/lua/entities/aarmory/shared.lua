@@ -10,7 +10,7 @@ ENT.Purpose			= "An Armory"
 ENT.Instructions	= ""
 
 function ENT:SetupDataTables()
-    self:NetworkVar("Bool", 0, "IsRobbing")
+    self:NetworkVar("Bool", 0, "isAArmoryRobbing")
 end
 
 

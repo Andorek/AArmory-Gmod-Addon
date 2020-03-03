@@ -30,7 +30,7 @@ function ENT:Draw()
 
     cam.Start3D2D(pos, ang, 0.1)
         local c
-        if self:GetIsRobbing() then
+        if self:GetisAArmoryRobbing() then
             c = Color(255, 0, 0, 255)
         else
             c = Color(100, 100, 255, 255)
@@ -54,9 +54,7 @@ end
 hook.Add("OnEntityCreated", "MakeSound", makeSound)
 
 -- Most positions/sizes are a huge mess, but they work.
-net.Receive("useEnt", function()
-    local plyJob = net.ReadString()
-    local ent = net.ReadEntity()
+net.Receive("useAArmoryEnt", function()
 
         local frame = vgui.Create( "DFrame", panel )
             frame:SetSize( ScrW() * 0.3, ScrH() * 0.6 )
@@ -131,7 +129,7 @@ net.Receive("useEnt", function()
                 end
                 weaponButton.DoClick = function()
 
-                    net.Start( "giveWeapon" )
+                    net.Start( "giveAArmoryWeapon" )
                         net.WriteString( k )
                         net.WriteString( wName )
                     net.SendToServer()
@@ -174,7 +172,7 @@ end)
 
 local robToggle = nil
 function ENT:Think()
-    local isRobbing = self:GetIsRobbing()
+    local isRobbing = self:GetisAArmoryRobbing()
     if isRobbing and robToggle then return end
 
     if isRobbing and !robToggle then

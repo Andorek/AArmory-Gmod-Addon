@@ -8,15 +8,18 @@ AARMORY.weaponTable = {}
 AARMORY.Settings.useCustomSoundfile = false
 AARMORY.Settings.customSoundfile =  "ambient/alarms/apc_alarm_pass1.wav" -- Just a placeholder, put whatever you want here.
 
-AARMORY.Settings.robbers = {"thief", "prothief"} -- Put the command for the job in here
 AARMORY.Settings.robTimer = 10
 AARMORY.Settings.robCooldown = 10 
 AARMORY.Settings.cancelRobDistance = 900 -- How far away the player has to be to cancel robbing the armory.
 
-AARMORY.Settings.weaponTimer = 5 -- How long it takes for the cp to be able to grab another gun
+AARMORY.Settings.weaponTimer = 10 -- How long it takes for the cp to be able to grab another gun
 AARMORY.Settings.copAmount = 0 -- Amount of cops that need to be on before the armory can get robbed. (Put 0 to disable).
 
 AARMORY.Settings.rewardMoney = 5000
+
+AARMORY.Settings.robbers = {}
+AARMORY.Settings.robbers["thief"] = true -- Copy and paste and put the job command in.
+--AARMORY.Settings.robbers["prothief"] = true
 
 -- Weapons --
 
