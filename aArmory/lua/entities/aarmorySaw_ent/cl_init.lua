@@ -67,16 +67,16 @@ function ENT:Draw()
     cam.Start3D2D(pos, ang, 0.02)
     surface.SetDrawColor(255, 255, 255, 255)
         draw.RoundedBox(50, 0, 0, 400, 300, Color(0,0,0,200))
-        draw.SimpleText("SawOS", "aarmorySawFont", 200, 10, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
-        draw.SimpleText("For all your armory raiding needs...", "aarmorySawFontTiny", 200, 80, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+        draw.SimpleText(AARMORY.Localise.saw.bigText, "aarmorySawFont", 200, 10, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+        draw.SimpleText(AARMORY.Localise.saw.littleText, "aarmorySawFontTiny", 200, 80, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 
         draw.RoundedBox(20, 50, 130, 300, 100, Color(255,255,255,200))
 
         if self:GetrobTimer() > 0.3 then -- Networked timer doesn't reach zero, only gets close
             draw.RoundedBox(20, 60, 140, Lerp(self:GetrobTimer() / AARMORY.Settings.robTime, 280, 0), 80, Color(255,255,0,255))
-            draw.SimpleTextOutlined("Status: RUNNING", "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))
+            draw.SimpleTextOutlined(AARMORY.Localise.saw.running, "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))
         else
-            draw.SimpleTextOutlined("Status: IDLE", "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))
+            draw.SimpleTextOutlined(AARMORY.Localise.saw.idle, "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))
         end
 
     cam.End3D2D()

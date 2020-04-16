@@ -30,12 +30,12 @@ function ENT:Use(ply)
                 local count = 1
                 for k, v in pairs(AARMORY.weaponTable) do
                     if self:GetParentAttachment() == count then
-                        pEnt:SetNWBool("open" .. count, true)
+                        pEnt:SetNWBool("open" .. k, true)
                         self:SetParent(nil, 0)
                         self.sound:Stop()
                         self:SetPos(pEntForward)
 
-                        pEnt:openArmory(count, false, pEntForward, nil, nil)
+                        pEnt:openArmory(false, pEntForward, nil, k)
                         break
                     end
                     count = count + 1

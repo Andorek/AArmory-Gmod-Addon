@@ -1,5 +1,12 @@
+AARMORY = {} or AARMORY
+AARMORY.Settings = {}
+AARMORY.Localise = {}
+AARMORY.weaponTable = {}
+
 AddCSLuaFile("aarmory_config.lua")
+AddCSLuaFile("aarmory_localisation.lua")
 include("aarmory_config.lua")
+include("aarmory_localisation.lua")
 
 local function aarmorySpawn()
 
@@ -17,7 +24,7 @@ local function aarmorySpawn()
                 entity:SetAngles( entAng )
                 entity:Spawn()
 
-                print("Spawned " .. k .. " on map " .. tostring(v.map) .. " with position " .. tostring(math.Round(entPos.x)) .. ", " .. tostring(math.Round(entPos.y)) .. ", " .. tostring(math.Round(entPos.x)) .. " and angle " .. tostring(math.Round(entAng.x)) .. ", " .. tostring(math.Round(entAng.y)) .. ", " .. tostring(math.Round(entAng.x)) .. ".")
+                print(AARMORY.Localise.console1 .. k .. AARMORY.Localise.console2 .. tostring(v.map) .. AARMORY.Localise.console3 .. tostring(math.Round(entPos.x)) .. ", " .. tostring(math.Round(entPos.y)) .. ", " .. tostring(math.Round(entPos.x)) .. AARMORY.Localise.console4 .. tostring(math.Round(entAng.x)) .. ", " .. tostring(math.Round(entAng.y)) .. ", " .. tostring(math.Round(entAng.x)) .. ".")
 
             end
         end

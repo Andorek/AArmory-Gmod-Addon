@@ -77,7 +77,7 @@ function ENT:Initialize()
     --self.time = CurTime()
     local s
     if AARMORY.Settings.useCustomSoundfile then s = AARMORY.Settings.customSoundfile else s = "ambient/alarms/alarm1.wav" end
-    self.sound = CreateSound(self, s) -- This has to be clientside otherwise when a player joins afer the armory is created they will not be able to hear any alarm.
+    self.sound = CreateSound(self, s) -- This has to be clientside otherwise when a player joins afer the armory is created they will not be able to hear any alarm (Important because the armory can be saved to the map, creating the armory before any player joins).
 end
 
 function ENT:Draw()
@@ -94,13 +94,13 @@ function ENT:Draw()
     local cooldownTimer = math.Round(self:GetcooldownTimer())
 
     cam.Start3D2D(pos, ang, 0.025)
-        draw.SimpleTextOutlined("Police Armory", "aarmoryFontMassive", 0, 0, Color(100,100,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
+        draw.SimpleTextOutlined(AARMORY.Localise.armory.policeArmory, "aarmoryFontMassive", 0, 0, Color(100,100,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
 
         if self:GetisGui() then
             if raidTimer != 0 then
-                draw.SimpleTextOutlined("Raiding: " .. raidTimer, "aarmoryFontSmallerMassive", 0, 270, Color(255,50,50,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
+                draw.SimpleTextOutlined(AARMORY.Localise.armory.raidingTimer .. raidTimer, "aarmoryFontSmallerMassive", 0, 270, Color(255,50,50,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
             elseif cooldownTimer != 0 then
-                draw.SimpleTextOutlined("Cooldown: " .. cooldownTimer, "aarmoryFontSmallerMassive", 0, 270, Color(150,150,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
+                draw.SimpleTextOutlined(AARMORY.Localise.armory.cooldownTimer .. cooldownTimer, "aarmoryFontSmallerMassive", 0, 270, Color(150,150,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 10, Color(0,0,0,255))
             end
         end
 
@@ -109,9 +109,8 @@ end
 
 function ENT:Think()
     local isAnyOpen = true
-    local count = 1
     for k, v in pairs(AARMORY.weaponTable) do
-        if self:GetNWBool("open" .. count) then -- The alarm wont 2stop unless ALL locker doors are closed.
+        if self:GetNWBool("open" .. k) then -- The alarm wont stop unless ALL locker doors are closed
             isAnyOpen = true
             break
         else
@@ -163,7 +162,7 @@ net.Receive("aarmoryUse", function(len, p)
         closeButton:SetSize( frame:GetWide() / 3, frame:GetTall() / 10 )
         closeButton:SetTextColor( Color(255,255,255) )
         closeButton:SetFont( "Trebuchet24" )
-        closeButton:SetText( "Close" )
+        closeButton:SetText( AARMORY.Localise.armory.closeButton )
         closeButton.DoClick = function() frame:Close() end
         closeButton.Paint = function( s, w, h )
             draw.RoundedBox( 6, 0, 0, w, h, Color( 100,100,255,255 ) )
@@ -217,9 +216,9 @@ net.Receive("aarmoryUse", function(len, p)
             weaponButton.Paint = function( s, w, h )
                 draw.RoundedBox( 4, 0, 0, w, h, Color( 200, 200, 200, 255 ) )
                 if giveAmmo then
-                    draw.DrawText( "Equip Ammo", "Trebuchet24", w / 2, h / 4, Color( 0, 0, 0, 255), TEXT_ALIGN_CENTER )
+                    draw.DrawText( AARMORY.Localise.armory.equipAmmoButton, "Trebuchet24", w / 2, h / 4, Color( 0, 0, 0, 255), TEXT_ALIGN_CENTER )
                 else
-                    draw.DrawText( "Equip", "Trebuchet24", w / 2, h / 4, Color( 0, 0, 0, 255), TEXT_ALIGN_CENTER )
+                    draw.DrawText( AARMORY.Localise.armory.equipButton, "Trebuchet24", w / 2, h / 4, Color( 0, 0, 0, 255), TEXT_ALIGN_CENTER )
                 end
             end
             weaponButton.DoClick = function()
@@ -285,13 +284,9 @@ local function drawStencil()
 
             local open = {}
             local cooldown = {}
-            local count = 1
-            local tCount = table.Count(AARMORY.weaponTable)
             for k, v in pairs(AARMORY.weaponTable) do
-                if count > tCount then break end
-                open[count] = ent:GetNWBool("open" .. count)
-                cooldown[k] = ent:GetNWBool("cooldown" .. count)
-                count = count + 1
+                open[k] = ent:GetNWBool("open" .. k)
+                cooldown[k] = ent:GetNWBool("cooldown" .. k)
             end
 
             cam.Start3D2D(pos, ang, 0.02)
@@ -322,14 +317,11 @@ local function drawStencil()
                     cam.Start3D2D(pos, ang, 0.02)
 
                         surface.SetDrawColor(255, 255, 255, 255)
-                        local count2 = 1
                         local offset2 = 0
                         for k, v in pairs(AARMORY.weaponTable) do
-                            if count2 > tCount then break end
-                            if open[count2] then
+                            if open[k] then
                                 surface.DrawRect(0 + offset2, 0, 580, 2900)
                             end
-                            count2 = count2 + 1
                             offset2 = offset2 + 605
                         end
 

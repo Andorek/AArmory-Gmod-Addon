@@ -32,7 +32,11 @@ local function saveEnt( ply, text, team )
     if ply:IsSuperAdmin() then
         if text == "/aarmorysave" or text == "!aarmorysave" then
             
-            local count = 0
+            if table.IsEmpty(ents.FindByClass( "aarmory_ent" )) then
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noArmory )
+                return
+            end
+
             for k, v in pairs( ents.FindByClass( "aarmory_ent" ) ) do
                 posTable[ tostring( v ) ] = {
                     pos = v:GetPos(),
@@ -45,26 +49,26 @@ local function saveEnt( ply, text, team )
 
             if !file.IsDir( "aarmory", "DATA" ) then
                 file.CreateDir( "aarmory" )
-                DarkRP.notify( ply, 0, 5, "Directory data/aarmory/ created." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dirCreated )
                 file.Write( "aarmory/aarmory.txt", jsonTab )
-                DarkRP.notify( ply, 0, 5, "File data/aarmory/aarmory.txt created." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileCreated )
             else
                 file.Write( "aarmory/aarmory.txt", jsonTab )
-                DarkRP.notify( ply, 0, 5, "File data/aarmory/aarmory.txt written to." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileWritten )
             end
 
         elseif text == "/aarmoryremove" or text == "!aarmoryremove" then
             if file.Exists( "aarmory/aarmory.txt", "DATA" ) then
                 file.Delete( "aarmory/aarmory.txt", "DATA" )
-                DarkRP.notify( ply, 0, 5, "File data/aarmory/aarmory.txt deleted." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileDeleted )
             else
-                DarkRP.notify( ply, 0, 5, "No file to delete." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noFileToDelete )
             end
             if file.IsDir( "aarmory", "DATA" ) then
                 file.Delete( "aarmory" )
-                DarkRP.notify( ply, 0, 5, "Directory data/aarmory/ deleted." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dirDeleted )
             else
-                DarkRP.notify( ply, 0, 5, "No directory to delete." )
+                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noDirToDelete )
             end
         end
     end
@@ -97,21 +101,21 @@ local function aarmorySpawnShipment( ply, name, amount, entity, spawnPos )
         end
 end
 
-local curDoorEnt = {} -- Has to be outside the function otherwise it keeps resetting to nil.
-function ENT:openArmory(count, isRobbing, sawPos, ply, weapon) -- A mess of timers, but it all works.
+local curDoorEnt = {} -- Has to be defined outside the function otherwise it would keep resetting to nil.
+function ENT:openArmory(isRobbing, sawPos, ply, weapon) -- A mess of timers, but it all works.
     
     local aarmoryDoorEnt = ents.Create("prop_physics")
     aarmoryDoorEnt:SetModel("models/props_lab/lockerdoorleft.mdl")
 
     if !isRobbing then
-        if !timer.Exists("openTimer" .. count) then
+        if !timer.Exists("openTimer" .. weapon) then
             aarmoryDoorEnt:SetPos(sawPos or self:GetPos() + self:GetAngles():Forward() * 10)
             aarmoryDoorEnt:Spawn()
-            curDoorEnt[count] = {
+            curDoorEnt[weapon] = {
                 ent = aarmoryDoorEnt
             }
-            timer.Create("openTimer" .. count, AARMORY.Settings.openTime, 1, function()
-                self:SetNWBool("open" .. count, false)
+            timer.Create("openTimer" .. weapon, AARMORY.Settings.openTime, 1, function()
+                self:SetNWBool("open" .. weapon, false)
                 if self:GetalarmChance() then
                     self:SetalarmChance(false)
                 end
@@ -119,28 +123,28 @@ function ENT:openArmory(count, isRobbing, sawPos, ply, weapon) -- A mess of time
                     aarmoryDoorEnt:Remove()
                 end
             end)
-        elseif timer.TimeLeft("openTimer" .. count) == nil then
+        elseif timer.TimeLeft("openTimer" .. weapon) == nil then
             aarmoryDoorEnt:SetPos(sawPos or self:GetPos() + self:GetAngles():Forward() * 10)
             aarmoryDoorEnt:Spawn()
-            timer.Start("openTimer" .. count)
+            timer.Start("openTimer" .. weapon)
         end
     else
         aarmorySpawnShipment( ply, AARMORY.weaponTable[weapon].printName, AARMORY.weaponTable[weapon].amount, weapon, self:GetPos() + self:GetAngles():Forward() * 10 )
-        if IsValid(curDoorEnt[count].ent) then
-            curDoorEnt[count].ent:Remove()
+        if IsValid(curDoorEnt[weapon].ent) then
+            curDoorEnt[weapon].ent:Remove()
         end
-        self:SetNWBool("open" .. count, false)
-        if !timer.Exists("cooldown" .. count) then
+        self:SetNWBool("open" .. weapon, false)
+        if !timer.Exists("cooldown" .. weapon) then
             if self:GetalarmChance() then
                 self:SetalarmChance(false)
             end
-            self:SetNWBool("cooldown" .. count, true)
-            timer.Create("cooldown" .. count, AARMORY.Settings.cooldownTime, 1, function()
-                self:SetNWBool("cooldown" .. count, false)
+            self:SetNWBool("cooldown" .. weapon, true)
+            timer.Create("cooldown" .. weapon, AARMORY.Settings.cooldownTime, 1, function()
+                self:SetNWBool("cooldown" .. weapon, false)
             end)
-        elseif timer.TimeLeft("cooldown" .. count) == nil then
-            self:SetNWBool("cooldown" .. count, true)
-            timer.Start("cooldown" .. count)
+        elseif timer.TimeLeft("cooldown" .. weapon) == nil then
+            self:SetNWBool("cooldown" .. weapon, true)
+            timer.Start("cooldown" .. weapon)
         end
     end
 end
@@ -155,7 +159,6 @@ function ENT:Touch(ent)
     if self:GetisGui() then
         return
     elseif cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then
-        DarkRP.notify( ply, 0, 5, "There are not enough police online!" )
         return
     end
 
@@ -172,7 +175,7 @@ function ENT:Touch(ent)
         local offset = 0
         for k, v in pairs(AARMORY.weaponTable) do
             if x > 0 + offset and x < 605 + offset then
-                if self:GetNWBool("open" .. count) or self:GetNWBool("cooldown" .. count) then return end
+                if self:GetNWBool("open" .. k) or self:GetNWBool("cooldown" .. k) then return end
                 for k, v in pairs(self:GetChildren()) do
                     if v:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
                 end
@@ -219,9 +222,9 @@ local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, m
             ammoTimeLimit(ply, weapon)
             ply:GiveAmmo(ammoAmount or 30, ammoType)
         elseif maxAmmoLimit <= 0 then
-            DarkRP.notify( ply, 0, 5, "You have to wait " .. math.Round(timer.TimeLeft("ammoLimitTimer" .. weapon .. ply:SteamID())) .. " seconds before getting more ammo.")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.ammoTimeDelay1 .. math.Round(timer.TimeLeft("ammoLimitTimer" .. weapon .. ply:SteamID())) .. AARMORY.Localise.armory.ammoTimeDelay2)
         else
-            DarkRP.notify( ply, 0, 5, "You don't own the weapon " .. name .. ".")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dontOwnWeapon .. name .. ".")
         end
     end
 
@@ -238,20 +241,20 @@ local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, m
             end
         end
         if ply:HasWeapon(weapon) then
-            DarkRP.notify( ply, 0, 5, "You already have the weapon " .. name .. ".")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.alreadyHasWeapon .. name .. ".")
             return
         elseif !restrictGroupTable then
-            DarkRP.notify( ply, 0, 5, "You aren't the right group to grab this weapon!")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightGroup .. name .. "!")
             return
         elseif !restrictJobTable then
-            DarkRP.notify( ply, 0, 5, "You aren't the right job to grab this weapon!")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightJob .. name .. "!")
             return
         elseif !canGetWeapon then
-            DarkRP.notify( ply, 0, 5, "You have to wait " .. math.Round(timer.TimeLeft("weaponTimer" .. ply:SteamID())) .. " seconds before getting another weapon.")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.weaponTimer1 .. math.Round(timer.TimeLeft("weaponTimer" .. ply:SteamID())) .. AARMORY.Localise.armory.weaponTimer2)
             return
         else
             ply:Give(weapon)
-            DarkRP.notify( ply, 0, 5, "Retrieving " .. name .. ".")
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.retrieve .. name .. ".")
         end
     end
 
@@ -270,13 +273,13 @@ function ENT:startAArmoryRobbery(ply) -- This function is for the gui version of
     end
 
     if cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then
-        DarkRP.notify( ply, 0, 5, "There are not enough police online!" )
+        DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notEnoughCops )
         return
     elseif timer.TimeLeft("aarmoryCooldown" .. self:EntIndex()) != nil then
-        DarkRP.notify( ply, 0, 5, "The armory is on cooldown!" )
+        DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.cooldown )
         return
     elseif timer.TimeLeft("aarmoryRobbing" .. self:EntIndex()) != nil then
-        DarkRP.notify( ply, 0, 5, "The armory is being robbed!" )
+        DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.raiding )
         return
     end
 
@@ -313,7 +316,7 @@ function ENT:Think()
         if IsValid(robber) and timer.TimeLeft("aarmoryRobbing" .. self:EntIndex()) != nil then
             if !robber:Alive() then
                 for k, v in pairs(player.GetAll()) do
-                    DarkRP.notify( v, 0, 5, "The robbery was thwarted!" )
+                    DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberKilled )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
@@ -324,7 +327,7 @@ function ENT:Think()
                 end
             elseif !AARMORY.Settings.robbers[robber:getJobTable().command] then
                 for k, v in pairs(player.GetAll()) do
-                    DarkRP.notify( v, 0, 5, "The robber changed jobs!" )
+                    DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberChangedJobs )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
@@ -335,7 +338,7 @@ function ENT:Think()
                 end
             elseif robber:isArrested() then
                 for k, v in pairs(player.GetAll()) do
-                    DarkRP.notify( v, 0, 5, "The robber was arrested!" )
+                    DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberArrested )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
@@ -346,7 +349,7 @@ function ENT:Think()
                 end
             elseif robber:GetPos():DistToSqr(self:GetPos()) > (AARMORY.Settings.distance * AARMORY.Settings.distance) then
                 for k, v in pairs(player.GetAll()) do
-                    DarkRP.notify( v, 0, 5, "The robber moved too far from the armory!" )
+                    DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberTooFarFromArmory )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
@@ -373,15 +376,11 @@ function ENT:Use(ply)
     local isGui = self:GetisGui()
 
     local open = {}
-    local count = 1
-    local tCount = table.Count(AARMORY.weaponTable)
     for k, v in pairs(AARMORY.weaponTable) do
-        if count > tCount then break end
-        open[k] = self:GetNWBool("open" .. count)
+        open[k] = self:GetNWBool("open" .. k)
         if ply.ammoLimit[k] == nil then -- Otherwise when new guns are added players have to reconnect for them to work
             ply.ammoLimit[k] = AARMORY.Settings.ammoInteractTimes
         end
-        count = count + 1
     end
 
     local ang = self:GetAngles()
@@ -394,24 +393,24 @@ function ENT:Use(ply)
     local cursorX, cursorY = WorldToScreen(ply:GetEyeTrace().HitPos, pos, 0.02, ang) -- God knows why only 'ply' instead of 'p' works here.
     --print("X: " .. cursorX .. ", " .. "Y: " .. cursorY)
 
-    local count2 = 1
+    local count = 1
     local offset = 0
 
     if !isGui then
         for k, v in pairs(AARMORY.weaponTable) do
             if cursorX > (0 + offset) and cursorX < (605+ offset) and !open[k] and isCP then
-                if self:GetNWBool("cooldown" .. count2) then
-                    DarkRP.notify( ply, 0, 5, "The weapon " .. v.printName .. " needs to restock after being stolen!")
+                if self:GetNWBool("cooldown" .. k) then
+                    DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.restock1 .. v.printName .. AARMORY.Localise.armory.restock2 )
                     break
                 else
                     for k, v in pairs(self:GetChildren()) do
-                        if v:GetParentAttachment() == count2 then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
+                        if v:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
                     end
-                    self:SetNWBool("open" .. count2, true)
+                    self:SetNWBool("open" .. k, true)
                 end
             elseif cursorX > (0 + offset) and cursorX < (150  + offset) then
                 if isCP then
-                    self:SetNWBool("open" .. count2, false)
+                    self:SetNWBool("open" .. k, false)
                     break
                 end
             elseif cursorX > (150 + offset) and cursorX < (605 + offset) then
@@ -434,21 +433,21 @@ function ENT:Use(ply)
                     end
                     aarmoryGiveWeapon(k, v.printName, false, v.ammo, v.ammoAmount, ply.ammoLimit[k], ply, isJob, isGroup)
                 elseif isRobber and open[k] then
-                    self:openArmory(count2, true, nil, ply, k)
+                    self:openArmory(true, nil, ply, k)
                 elseif open[k] then
-                    DarkRP.notify( ply, 0, 5, "You aren't the right job to use the armory!")
+                    DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightJobNoGui )
                 end
                 break
             end
             offset = offset + 605
-            count2 = count2 + 1
+            count = count + 1
         end
     elseif isCP then
         if timer.TimeLeft("aarmoryCooldown" .. self:EntIndex()) != nil then
-            DarkRP.notify( ply, 0, 5, "The armory is on cooldown!" )
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.cooldown )
             return
         elseif timer.TimeLeft("aarmoryRobbing" .. self:EntIndex()) != nil then
-            DarkRP.notify( ply, 0, 5, "The armory is being robbed!" )
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.raiding )
             return
         else
             net.Start("aarmoryUse")
@@ -493,17 +492,15 @@ function ENT:OnRemove()
     if timer.Exists("aarmoryRobbing" .. self:EntIndex()) then
         timer.Remove("aarmoryRobbing" .. self:EntIndex())
     end
-    local count = 1
     for k, v in pairs(AARMORY.weaponTable) do
-        if timer.Exists("cooldown" .. count) then
+        if timer.Exists("cooldown" .. k) then
             timer.Remove("aarmoryRobbing" .. self:EntIndex())
         end
-        if timer.Exists("cooldown" .. count) then
-            timer.Remove("cooldown" .. count)
+        if timer.Exists("cooldown" .. k) then
+            timer.Remove("cooldown" .. k)
         end
-        if timer.Exists("openTimer" .. count) then
-            timer.Remove("openTimer" .. count)
+        if timer.Exists("openTimer" .. k) then
+            timer.Remove("openTimer" .. k)
         end
-        count = count + 1
     end
 end

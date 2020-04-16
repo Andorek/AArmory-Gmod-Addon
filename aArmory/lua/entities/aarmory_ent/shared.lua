@@ -22,13 +22,10 @@ end
 
 function ENT:Initialize() -- I can't use data tables because I need to be able to retrieve the data from a string.
 
-    local count = 1
-    local tableCount = table.Count(AARMORY.weaponTable)
     for k, v in pairs(AARMORY.weaponTable) do
-        if count > tableCount or self:GetisGui() then return end
-        self:SetNWBool("open" .. count, false)
-        self:SetNWBool("cooldown" .. count, false)
-        count = count + 1
+        if self:GetisGui() then return end
+        self:SetNWBool("open" .. k, false)
+        self:SetNWBool("cooldown" .. k, false)
     end
 
 end
