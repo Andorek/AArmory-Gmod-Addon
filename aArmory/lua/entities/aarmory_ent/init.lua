@@ -5,7 +5,34 @@ include( "shared.lua" )
 
 util.AddNetworkString("aarmoryUse")
 util.AddNetworkString("aarmoryGive")
-util.AddNetworkString("startOpen")
+util.AddNetworkString("sendConfig")
+util.AddNetworkString("aarmoryClientConfig")
+
+local function networkConfig(ent, ply) -- Only sends the stuff needed clientside, not the whole config.
+    net.Start("aarmoryClientConfig")
+        net.WriteUInt(ent:GetaarmoryID(), 12)
+        net.WriteUInt(table.Count(ent.configTable.weapons), 12)
+        for k, v in SortedPairs(ent.configTable.weapons) do
+            net.WriteString(k)
+            net.WriteString(v.name)
+            net.WriteString(v.model)
+            net.WriteBool(v.useWeapon)
+        end
+    net.Send(ply)
+end
+
+--[[
+local function debugNetwork(ply, text)
+    if text == "!aarmory" or text == "/aarmory" then
+        for k, v in pairs(player.GetAll()) do
+            for a, b in pairs(ents.FindByClass("aarmory_ent")) do
+                networkConfig(b, v)
+            end
+        end
+    end
+end
+hook.Add("PlayerSay", "debug", debugNetwork)
+]]--
 
 function ENT:Initialize()
     self:SetModel( "models/props_c17/lockers001a.mdl" )
@@ -14,8 +41,28 @@ function ENT:Initialize()
 	self:SetMoveType( SOLID_VPHYSICS )
     self:SetUseType( SIMPLE_USE )
 
-    local isGui = AARMORY.Settings.guiMode
-    local tCount = table.Count(AARMORY.weaponTable)
+    local config = util.JSONToTable(file.Read("aarmory/config.txt", "DATA"))
+    for k, v in pairs(config) do
+        AARMORY.Config[k] = v
+    end
+
+    self.configTable = config["Default"]
+    if AARMORY.Config[self:GetaarmoryID()] != nil then
+        self.configTable = AARMORY.Config[self:GetaarmoryID()]
+    end
+
+    for k, v in pairs(player.GetAll()) do
+        v.ammoLimit = {}
+        networkConfig(self, v)
+    end
+
+    local isGui = self.configTable.aarmoryConfig.guiMode.var
+    local tCount = 0
+    for k, v in pairs(self.configTable.weapons) do
+        if v.useWeapon then
+            tCount = tCount + 1
+        end
+    end
     if isGui or tCount > 4 then
         self:SetisGui(true)
     else
@@ -24,57 +71,96 @@ function ENT:Initialize()
 
     local phys = self:GetPhysicsObject()
     if phys:IsValid() then phys:EnableMotion( false ) end -- Keeps it still/frozen until interacted with.
+
 end
 
-local function saveEnt( ply, text, team )
-    local posTable = {}
+net.Receive("sendConfig", function(len, ply)
+        if !ply:IsAdmin() and !ply:IsSuperAdmin() then return end
+        local netTable = net.ReadTable()
+        local remove = net.ReadBool()
+        local ent = net.ReadEntity()
+        local configTable = AARMORY.Config -- Had to do this so I could get rid of table.add, which was turning the keys into numbers.
+        local id = 1
+        for k, v in pairs(AARMORY.Config) do
+            if k == ent:GetaarmoryID() then
+                id = k
+                break
+            elseif k == id then
+                id = id + 1
+            end
+        end
+        if AARMORY.Config[id] != nil then
+            for k, v in pairs(AARMORY.Config[id].aarmoryConfig.staff.table) do
+                if ply:GetUserGroup() != k and !ply:IsAdmin() and !ply:IsSuperAdmin() then return end
+            end
+        end
+        configTable[id] = netTable
 
-    if ply:IsSuperAdmin() then
-        if text == "/aarmorysave" or text == "!aarmorysave" then
+        if !remove then
+            configTable[id].pos = ent:GetPos()
+            configTable[id].ang = ent:GetAngles()
+            configTable[id].map = game.GetMap()
+
+            local jsonTab = util.TableToJSON(configTable, true)
+            file.Write("aarmory/config.txt", jsonTab)
+            AARMORY.Config[id] = configTable[id]
+
+            local entity = ents.Create("aarmory_ent")
             
-            if table.IsEmpty(ents.FindByClass( "aarmory_ent" )) then
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noArmory )
-                return
+            entity:SetPos( ent:GetPos() )
+            entity:SetAngles( ent:GetAngles() )
+            ent:Remove()
+            entity:SetaarmoryID(id)
+            entity:Spawn()
+            local text = "stencil mode."
+            if entity:GetisGui() then text = "GUI mode." end
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.saved1 .. id .. AARMORY.Localise.armory.saved2 .. text)
+        else
+            if ent:GetaarmoryID() == 0 then return end
+            for k, v in pairs(configTable) do
+                if k == id then
+                    table.Empty(v)
+                    table.Empty(AARMORY.Config[k])
+                    DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.saved1 .. k .. AARMORY.Localise.armory.removed)
+                end
             end
+            local jsonTab = util.TableToJSON(configTable, true)
+            file.Write("aarmory/config.txt", jsonTab)
+        end
 
-            for k, v in pairs( ents.FindByClass( "aarmory_ent" ) ) do
-                posTable[ tostring( v ) ] = {
-                    pos = v:GetPos(),
-                    ang = v:GetAngles(),
-                    map = game.GetMap(),
-                }
-            end
+end)
 
-            local jsonTab = util.TableToJSON( posTable )
+local function plyFullyLoaded(ply)
+    for k, v in pairs(ents.FindByClass("aarmory_ent")) do
+        networkConfig(v, ply)
+    end
+end
+hook.Add("PlayerFullLoad", "plyLoaded", plyFullyLoaded)
 
-            if !file.IsDir( "aarmory", "DATA" ) then
-                file.CreateDir( "aarmory" )
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dirCreated )
-                file.Write( "aarmory/aarmory.txt", jsonTab )
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileCreated )
-            else
-                file.Write( "aarmory/aarmory.txt", jsonTab )
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileWritten )
-            end
+local function plyConnect(ply)
+    ply.ammoLimit = {}
+    hook.Add("SetupMove",ply,function(self,ply,_,cmd) -- Taken from the gmod wiki
+        if self == ply and not cmd:IsForced() then 
+            hook.Run("PlayerFullLoad",self)
+            hook.Remove("SetupMove",self) 
+        end
+    end)
+end
+hook.Add("PlayerInitialSpawn", "ammoTableMaker", plyConnect)
 
-        elseif text == "/aarmoryremove" or text == "!aarmoryremove" then
-            if file.Exists( "aarmory/aarmory.txt", "DATA" ) then
-                file.Delete( "aarmory/aarmory.txt", "DATA" )
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.fileDeleted )
-            else
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noFileToDelete )
-            end
-            if file.IsDir( "aarmory", "DATA" ) then
-                file.Delete( "aarmory" )
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dirDeleted )
-            else
-                DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.noDirToDelete )
-            end
+
+local function ammoTimeLimit(ply, weapon, id)
+    if ply.ammoLimit[weapon] >= 0 then
+        ply.ammoLimit[weapon] = ply.ammoLimit[weapon] - 1
+        if !timer.Exists("ammoLimitTimer" .. weapon .. ply:SteamID()) then
+            timer.Create("ammoLimitTimer" .. weapon .. ply:SteamID(), AARMORY.Config[id].aarmoryConfig.ammoTimer.var, 1, function()
+                ply.ammoLimit[weapon] = AARMORY.Config[id].aarmoryConfig.ammoInteractTimes.var
+            end)
+        elseif timer.TimeLeft("ammoLimitTimer" .. weapon .. ply:SteamID()) == nil then
+            timer.Start("ammoLimitTimer" .. weapon .. ply:SteamID())
         end
     end
 end
-hook.Add( "PlayerSay", "entitySaver", saveEnt )
-
 
 -- Taken from a ULX spawnshipment addon and adjusted
 local function aarmorySpawnShipment( ply, name, amount, entity, spawnPos )
@@ -114,8 +200,8 @@ function ENT:openArmory(isRobbing, sawPos, ply, weapon) -- A mess of timers, but
             curDoorEnt[weapon] = {
                 ent = aarmoryDoorEnt
             }
-            timer.Create("openTimer" .. weapon, AARMORY.Settings.openTime, 1, function()
-                self:SetNWBool("open" .. weapon, false)
+            timer.Create("openTimer" .. weapon, self.configTable.aarmoryConfig.openTime.var, 1, function()
+                self:SetNWBool("open" .. weapon .. tostring(self), false)
                 if self:GetalarmChance() then
                     self:SetalarmChance(false)
                 end
@@ -129,21 +215,21 @@ function ENT:openArmory(isRobbing, sawPos, ply, weapon) -- A mess of timers, but
             timer.Start("openTimer" .. weapon)
         end
     else
-        aarmorySpawnShipment( ply, AARMORY.weaponTable[weapon].printName, AARMORY.weaponTable[weapon].amount, weapon, self:GetPos() + self:GetAngles():Forward() * 10 )
+        aarmorySpawnShipment( ply, self.configTable.weapons[weapon].name, self.configTable.weapons[weapon].amount, weapon, self:GetPos() + self:GetAngles():Forward() * 10 )
         if IsValid(curDoorEnt[weapon].ent) then
             curDoorEnt[weapon].ent:Remove()
         end
-        self:SetNWBool("open" .. weapon, false)
+        self:SetNWBool("open" .. weapon .. tostring(self), false)
         if !timer.Exists("cooldown" .. weapon) then
             if self:GetalarmChance() then
                 self:SetalarmChance(false)
             end
-            self:SetNWBool("cooldown" .. weapon, true)
-            timer.Create("cooldown" .. weapon, AARMORY.Settings.cooldownTime, 1, function()
-                self:SetNWBool("cooldown" .. weapon, false)
+            self:SetNWBool("cooldown" .. weapon .. tostring(self), true)
+            timer.Create("cooldown" .. weapon, self.configTable.aarmoryConfig.cooldownTime.var, 1, function()
+                self:SetNWBool("cooldown" .. weapon .. tostring(self), false)
             end)
         elseif timer.TimeLeft("cooldown" .. weapon) == nil then
-            self:SetNWBool("cooldown" .. weapon, true)
+            self:SetNWBool("cooldown" .. weapon .. tostring(self), true)
             timer.Start("cooldown" .. weapon)
         end
     end
@@ -158,7 +244,7 @@ function ENT:Touch(ent)
     end
     if self:GetisGui() then
         return
-    elseif cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then
+    elseif cpCount < self.configTable.aarmoryConfig.copAmount.var and self.configTable.aarmoryConfig.copAmount.var != 0 then
         return
     end
 
@@ -173,35 +259,24 @@ function ENT:Touch(ent)
         local count = 1
         local sOffset = 0
         local offset = 0
-        for k, v in pairs(AARMORY.weaponTable) do
-            if x > 0 + offset and x < 605 + offset then
-                if self:GetNWBool("open" .. k) or self:GetNWBool("cooldown" .. k) then return end
-                for k, v in pairs(self:GetChildren()) do
-                    if v:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
+        for k, v in SortedPairs(self.configTable.weapons) do
+            if v.useWeapon then
+                if x > 0 + offset and x < 605 + offset then
+                    if self:GetNWBool("open" .. k .. tostring(self)) or self:GetNWBool("cooldown" .. k .. tostring(self)) then return end
+                    for a, b in pairs(self:GetChildren()) do
+                        if b:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
+                    end
+                    ent:SetParent(self, count)
+                    ent:SetPos( Vector(6.5,-10 + sOffset,-2))
+                    ent:SetAngles(ang + Angle(175, 60, 100))
+                    if math.Rand(0, 100) < self.configTable.aarmoryConfig.alarmChance.var and !self:GetalarmChance() then
+                        self:SetalarmChance(true)
+                    end
                 end
-                ent:SetParent(self, count)
-                ent:SetPos( Vector(6.5,-10 + sOffset,-2))
-                ent:SetAngles(ang + Angle(175, 60, 100))
-                if math.Rand(0, 100) < AARMORY.Settings.alarmChance and !self:GetalarmChance() then
-                    self:SetalarmChance(true)
-                end
+                count = count + 1
+                sOffset = sOffset + 12.5
+                offset = offset + 605
             end
-            count = count + 1
-            sOffset = sOffset + 12.5
-            offset = offset + 605
-        end
-    end
-end
-
-local function ammoTimeLimit(ply, weapon)
-    if ply.ammoLimit[weapon] >= 0 then
-        ply.ammoLimit[weapon] = ply.ammoLimit[weapon] - 1
-        if !timer.Exists("ammoLimitTimer" .. weapon .. ply:SteamID()) then
-            timer.Create("ammoLimitTimer" .. weapon .. ply:SteamID(), AARMORY.Settings.ammoTimer, 1, function()
-                ply.ammoLimit[weapon] = AARMORY.Settings.ammoInteractTimes
-            end)
-        elseif timer.TimeLeft("ammoLimitTimer" .. weapon .. ply:SteamID()) == nil then
-            timer.Start("ammoLimitTimer" .. weapon .. ply:SteamID())
         end
     end
 end
@@ -214,15 +289,14 @@ local function WorldToScreen(vWorldPos,vPos,vScale,aRot) -- From the maurits.tv 
     return vWorldPos.x/vScale,(-vWorldPos.y)/vScale;
 end
 
-local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, maxAmmoLimit, ply, restrictJobTable, restrictGroupTable)
+local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, maxAmmoLimit, ply, restrictJobTable, restrictGroupTable, id)
     local canGetWeapon = true
-
     if giveAmmo then
         if ply:HasWeapon(weapon) and maxAmmoLimit > 0 then
-            ammoTimeLimit(ply, weapon)
+            ammoTimeLimit(ply, weapon, id)
             ply:GiveAmmo(ammoAmount or 30, ammoType)
         elseif maxAmmoLimit <= 0 then
-            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.ammoTimeDelay1 .. math.Round(timer.TimeLeft("ammoLimitTimer" .. weapon .. ply:SteamID())) .. AARMORY.Localise.armory.ammoTimeDelay2)
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.ammoTimeDelay1 .. AARMORY.Localise.armory.ammoTimeDelay2)
         else
             DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.dontOwnWeapon .. name .. ".")
         end
@@ -230,7 +304,7 @@ local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, m
 
     if ply:isCP() and !giveAmmo then
         if !timer.Exists( "weaponTimer" .. ply:SteamID() ) then -- A cooldown so cops don't spam themselves weapons.
-            timer.Create( "weaponTimer" .. ply:SteamID(), AARMORY.Settings.weaponDelay, 1, function()
+            timer.Create( "weaponTimer" .. ply:SteamID(), AARMORY.Config[id].aarmoryConfig.weaponDelay.var, 1, function()
                 canGetWeapon = true
             end )
         elseif timer.Exists( "weaponTimer" .. ply:SteamID() ) then
@@ -250,7 +324,7 @@ local function aarmoryGiveWeapon(weapon, name, giveAmmo, ammoType, ammoAmount, m
             DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightJob .. name .. "!")
             return
         elseif !canGetWeapon then
-            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.weaponTimer1 .. math.Round(timer.TimeLeft("weaponTimer" .. ply:SteamID())) .. AARMORY.Localise.armory.weaponTimer2)
+            DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.weaponTimer1 .. tostring(math.Round(timer.TimeLeft("weaponTimer" .. ply:SteamID()))) .. AARMORY.Localise.armory.weaponTimer2)
             return
         else
             ply:Give(weapon)
@@ -272,7 +346,7 @@ function ENT:startAArmoryRobbery(ply) -- This function is for the gui version of
         end
     end
 
-    if cpCount < AARMORY.Settings.copAmount and AARMORY.Settings.copAmount != 0 then
+    if cpCount < self.configTable.aarmoryConfig.copAmount.var and self.configTable.aarmoryConfig.copAmount.var != 0 then
         DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notEnoughCops )
         return
     elseif timer.TimeLeft("aarmoryCooldown" .. self:EntIndex()) != nil then
@@ -284,18 +358,20 @@ function ENT:startAArmoryRobbery(ply) -- This function is for the gui version of
     end
 
     if !timer.Exists("aarmoryRobbing" .. self:EntIndex()) then
-        timer.Create("aarmoryRobbing" .. self:EntIndex(), AARMORY.Settings.robTime, 1, function()
+        timer.Create("aarmoryRobbing" .. self:EntIndex(), self.configTable.aarmoryConfig.robTime.var, 1, function()
 
-            ply:addMoney(AARMORY.Settings.rewardMoney)
+            ply:addMoney(self.configTable.aarmoryConfig.rewardMoney.var)
 
             local offset = 0
-            for k, v in pairs(AARMORY.weaponTable) do
-                aarmorySpawnShipment( ply, v.printName, v.amount or 10, k, self:GetPos() + self:GetAngles():Right() * (-40 + offset) + self:GetAngles():Forward() * 20 )
-                offset = offset + 40
+            for k, v in pairs(self.configTable.weapons) do
+                if v.useWeapon then
+                    aarmorySpawnShipment( ply, v.name, v.amount or 10, k, self:GetPos() + self:GetAngles():Right() * (-40 + offset) + self:GetAngles():Forward() * 20 )
+                    offset = offset + 40
+                end
             end
 
             if !timer.Exists("aarmoryCooldown" .. self:EntIndex()) then
-                timer.Create("aarmoryCooldown" .. self:EntIndex(), AARMORY.Settings.cooldownTime, 1, function() end)
+                timer.Create("aarmoryCooldown" .. self:EntIndex(), self.configTable.aarmoryConfig.cooldownTime.var, 1, function() end)
             else
                 timer.Start("aarmoryCooldown" .. self:EntIndex())
             end
@@ -321,18 +397,18 @@ function ENT:Think()
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
                 if !timer.Exists("aarmoryCooldown" .. self:EntIndex()) then
-                    timer.Create("aarmoryCooldown" .. self:EntIndex(), AARMORY.Settings.cooldownTime, 1, function() end)
+                    timer.Create("aarmoryCooldown" .. self:EntIndex(), self.configTable.aarmoryConfig.cooldownTime.var, 1, function() end)
                 else
                     timer.Start("aarmoryCooldown" .. self:EntIndex())
                 end
-            elseif !AARMORY.Settings.robbers[robber:getJobTable().command] then
+            elseif !self.configTable.aarmoryConfig.robbers.table[robber:getJobTable().command] then
                 for k, v in pairs(player.GetAll()) do
                     DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberChangedJobs )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
                 if !timer.Exists("aarmoryCooldown" .. self:EntIndex()) then
-                    timer.Create("aarmoryCooldown" .. self:EntIndex(), AARMORY.Settings.cooldownTime, 1, function() end)
+                    timer.Create("aarmoryCooldown" .. self:EntIndex(), self.configTable.aarmoryConfig.cooldownTime.var, 1, function() end)
                 else
                     timer.Start("aarmoryCooldown" .. self:EntIndex())
                 end
@@ -343,18 +419,18 @@ function ENT:Think()
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
                 if !timer.Exists("aarmoryCooldown" .. self:EntIndex()) then
-                    timer.Create("aarmoryCooldown" .. self:EntIndex(), AARMORY.Settings.cooldownTime, 1, function() end)
+                    timer.Create("aarmoryCooldown" .. self:EntIndex(), self.configTable.aarmoryConfig.cooldownTime.var, 1, function() end)
                 else
                     timer.Start("aarmoryCooldown" .. self:EntIndex())
                 end
-            elseif robber:GetPos():DistToSqr(self:GetPos()) > (AARMORY.Settings.distance * AARMORY.Settings.distance) then
+            elseif robber:GetPos():DistToSqr(self:GetPos()) > (self.configTable.aarmoryConfig.distance.var * self.configTable.aarmoryConfig.distance.var) then
                 for k, v in pairs(player.GetAll()) do
                     DarkRP.notify( v, 0, 5, AARMORY.Localise.armory.robberTooFarFromArmory )
                 end
                 self:SetrobTimer(0)
                 timer.Remove("aarmoryRobbing" .. self:EntIndex())
                 if !timer.Exists("aarmoryCooldown" .. self:EntIndex()) then
-                    timer.Create("aarmoryCooldown" .. self:EntIndex(), AARMORY.Settings.cooldownTime, 1, function() end)
+                    timer.Create("aarmoryCooldown" .. self:EntIndex(), self.configTable.aarmoryConfig.cooldownTime.var, 1, function() end)
                 else
                     timer.Start("aarmoryCooldown" .. self:EntIndex())
                 end
@@ -363,23 +439,22 @@ function ENT:Think()
     end
 end
 
-local function plyConnect(ply)
-    ply.ammoLimit = {}
-end
-hook.Add("PlayerInitialSpawn", "ammoTableMaker", plyConnect)
-
 function ENT:Use(ply)
     local plyJob = ply:getJobTable().command
-    local isRobber = AARMORY.Settings.robbers[plyJob]
-    local isAdmin = ply:IsAdmin() or ply:IsSuperAdmin() or AARMORY.Settings.staff[ply:GetUserGroup()]
+    local isRobber = self.configTable.aarmoryConfig.robbers.table[plyJob]
+    local isAdmin = ply:IsAdmin() or ply:IsSuperAdmin() or self.configTable.aarmoryConfig.staff.table[ply:GetUserGroup()]
     local isCP = ply:isCP()
     local isGui = self:GetisGui()
 
+    
+
     local open = {}
-    for k, v in pairs(AARMORY.weaponTable) do
-        open[k] = self:GetNWBool("open" .. k)
-        if ply.ammoLimit[k] == nil then -- Otherwise when new guns are added players have to reconnect for them to work
-            ply.ammoLimit[k] = AARMORY.Settings.ammoInteractTimes
+    for k, v in pairs(self.configTable.weapons) do
+        if v.useWeapon then
+            open[k .. tostring(self)] = self:GetNWBool("open" .. k .. tostring(self))
+            if ply.ammoLimit[k] == nil then -- Otherwise when new guns are added players have to reconnect for them to work
+                ply.ammoLimit[k] = self.configTable.aarmoryConfig.ammoInteractTimes.var
+            end
         end
     end
 
@@ -396,51 +471,62 @@ function ENT:Use(ply)
     local count = 1
     local offset = 0
 
+    if isAdmin and !isCP and !isRobber then
+        net.Start("aarmoryUse")
+            net.WriteEntity(self)
+            net.WriteBool(isAdmin)
+            net.WriteBool(isRobber)
+            net.WriteTable(self.configTable)
+        net.Send(ply)
+    end
+
     if !isGui then
-        for k, v in pairs(AARMORY.weaponTable) do
-            if cursorX > (0 + offset) and cursorX < (605+ offset) and !open[k] and isCP then
-                if self:GetNWBool("cooldown" .. k) then
-                    DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.restock1 .. v.printName .. AARMORY.Localise.armory.restock2 )
-                    break
-                else
-                    for k, v in pairs(self:GetChildren()) do
-                        if v:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
+        for k, v in SortedPairs(self.configTable.weapons) do
+            if v.useWeapon then
+                if cursorX > (0 + offset) and cursorX < (605 + offset) and !open[k .. tostring(self)] and isCP then
+                    if self:GetNWBool("cooldown" .. k .. tostring(self)) then
+                        DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.restock1 .. v.name .. AARMORY.Localise.armory.restock2 )
+                        break
+                    else
+                        for k, v in pairs(self:GetChildren()) do
+                            if v:GetParentAttachment() == count then return end -- The saw's attachment id does not turn back to 0 after removing it from the armory.
+                        end
+                        self:SetNWBool("open" .. k .. tostring(self), true)
                     end
-                    self:SetNWBool("open" .. k, true)
-                end
-            elseif cursorX > (0 + offset) and cursorX < (150  + offset) then
-                if isCP then
-                    self:SetNWBool("open" .. k, false)
-                    break
-                end
-            elseif cursorX > (150 + offset) and cursorX < (605 + offset) then
-                if isCP then
-                    if cursorY > 0 and cursorY < 600 then
-                            aarmoryGiveWeapon(k, v.printName, true, v.ammo, v.ammoAmount, ply.ammoLimit[k], ply)
+                elseif cursorX > (0 + offset) and cursorX < (150  + offset) then
+                    if isCP then
+                        self:SetNWBool("open" .. k .. tostring(self), false)
                         break
                     end
-                    local isJob = true
-                    local isGroup = true
-                    if !IsValid(v.restrictJob) or table.IsEmpty(v.restrictJob) or v.restrictJob[plyJob] then
-                        isJob = true
-                    else
-                        isJob = false
+                elseif cursorX > (150 + offset) and cursorX < (605 + offset) then
+                    if isCP then
+                        if cursorY > 0 and cursorY < 600 then
+                                aarmoryGiveWeapon(k, v.name, true, v.ammo, v.ammoAmount, ply.ammoLimit[k], ply, nil, nil, self:GetaarmoryID())
+                            break
+                        end
+                        local isJob = true
+                        local isGroup = true
+                        if !IsValid(v.restrictJob) or table.IsEmpty(v.restrictJob) or v.restrictJob[plyJob] then
+                            isJob = true
+                        else
+                            isJob = false
+                        end
+                        if !IsValid(v.restrictGroup) or table.IsEmpty(v.restrictGroup) or v.restrictGroup[ply:GetUserGroup()] then
+                            isGroup = true
+                        else
+                            isGroup = false
+                        end
+                        aarmoryGiveWeapon(k, v.name, false, v.ammo, v.ammoAmount, ply.ammoLimit[k], ply, isJob, isGroup, self:GetaarmoryID())
+                    elseif isRobber and open[k .. tostring(self)] then
+                        self:openArmory(true, nil, ply, k)
+                    elseif open[k .. tostring(self)] then
+                        DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightJobNoGui )
                     end
-                    if !IsValid(v.restrictGroup) or table.IsEmpty(v.restrictGroup) or v.restrictGroup[ply:GetUserGroup()] then
-                        isGroup = true
-                    else
-                        isGroup = false
-                    end
-                    aarmoryGiveWeapon(k, v.printName, false, v.ammo, v.ammoAmount, ply.ammoLimit[k], ply, isJob, isGroup)
-                elseif isRobber and open[k] then
-                    self:openArmory(true, nil, ply, k)
-                elseif open[k] then
-                    DarkRP.notify( ply, 0, 5, AARMORY.Localise.armory.notRightJobNoGui )
+                    break
                 end
-                break
+                offset = offset + 605
+                count = count + 1
             end
-            offset = offset + 605
-            count = count + 1
         end
     elseif isCP then
         if timer.TimeLeft("aarmoryCooldown" .. self:EntIndex()) != nil then
@@ -452,6 +538,9 @@ function ENT:Use(ply)
         else
             net.Start("aarmoryUse")
                 net.WriteEntity(self)
+                net.WriteBool(false) -- Otherwise the admin menu comes up when you're a cop.
+                net.WriteBool(isRobber)
+                net.WriteTable(self.configTable)
             net.Send(ply)
         end
     elseif isRobber then
@@ -462,26 +551,27 @@ end
 net.Receive("aarmoryGive", function(len, ply)
     local weapon = net.ReadString() -- Note if the weapon gotten from here is not in the weapon table in the config file for some reason then you will get an error.
     local ammoBool = net.ReadBool()
-    local weaponPrintName = AARMORY.weaponTable[weapon].printName
-    local weaponAmmo = AARMORY.weaponTable[weapon].ammo
-    local weaponAmmoAmount = AARMORY.weaponTable[weapon].ammoAmount
+    local id = net.ReadInt(12)
+    local weaponPrintName = AARMORY.Config[id].weapons[weapon].name
+    local weaponAmmo = AARMORY.Config[id].weapons[weapon].ammo
+    local weaponAmmoAmount = AARMORY.Config[id].weapons[weapon].ammoAmount
     local weaponAmmoLimit = ply.ammoLimit[weapon]
 
     local isJob = true
     local isGroup = true
-    if !IsValid(AARMORY.weaponTable[weapon].restrictJob) or table.IsEmpty(AARMORY.weaponTable[weapon].restrictJob) or AARMORY.weaponTable[weapon].restrictJob[plyJob] then
+    if !IsValid(AARMORY.Config[id].weapons[weapon].restrictJob) or table.IsEmpty(AARMORY.Config[id].weapons[weapon].restrictJob) or AARMORY.Config[id].weapons[weapon].restrictJob[plyJob] then
         isJob = true
     else
         isJob = false
     end
-    if !IsValid(AARMORY.weaponTable[weapon].restrictGroup) or table.IsEmpty(AARMORY.weaponTable[weapon].restrictGroup) or AARMORY.weaponTable[weapon].restrictGroup[ply:GetUserGroup()] then
+    if !IsValid(AARMORY.Config[id].weapons[weapon].restrictGroup) or table.IsEmpty(AARMORY.Config[id].weapons[weapon].restrictGroup) or AARMORY.Config[id].weapons[weapon].restrictGroup[ply:GetUserGroup()] then
         isGroup = true
     else
         isGroup = false
     end
 
     if ply:isCP() then
-        aarmoryGiveWeapon(weapon, weaponPrintName, ammoBool, weaponAmmo, weaponAmmoAmount, weaponAmmoLimit, ply, isJob, isGroup)
+        aarmoryGiveWeapon(weapon, weaponPrintName, ammoBool, weaponAmmo, weaponAmmoAmount, weaponAmmoLimit, ply, isJob, isGroup, id)
     end
 end)
 
@@ -492,7 +582,7 @@ function ENT:OnRemove()
     if timer.Exists("aarmoryRobbing" .. self:EntIndex()) then
         timer.Remove("aarmoryRobbing" .. self:EntIndex())
     end
-    for k, v in pairs(AARMORY.weaponTable) do
+    for k, v in pairs(self.configTable.weapons) do
         if timer.Exists("cooldown" .. k) then
             timer.Remove("aarmoryRobbing" .. self:EntIndex())
         end
@@ -501,6 +591,11 @@ function ENT:OnRemove()
         end
         if timer.Exists("openTimer" .. k) then
             timer.Remove("openTimer" .. k)
+        end
+        for a, b in pairs(player.GetAll()) do
+            if timer.Exists("ammoLimitTimer" .. k .. b:SteamID()) then
+                timer.Stop("ammoLimitTimer" .. k .. b:SteamID())
+            end
         end
     end
 end

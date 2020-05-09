@@ -73,7 +73,7 @@ function ENT:Draw()
         draw.RoundedBox(20, 50, 130, 300, 100, Color(255,255,255,200))
 
         if self:GetrobTimer() > 0.3 then -- Networked timer doesn't reach zero, only gets close
-            draw.RoundedBox(20, 60, 140, Lerp(self:GetrobTimer() / AARMORY.Settings.robTime, 280, 0), 80, Color(255,255,0,255))
+            draw.RoundedBox(20, 60, 140, Lerp(self:GetrobTimer() / self:GetmaxRobTime(), 280, 0), 80, Color(255,255,0,255))
             draw.SimpleTextOutlined(AARMORY.Localise.saw.running, "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))
         else
             draw.SimpleTextOutlined(AARMORY.Localise.saw.idle, "aarmorySawFontSmall", 200, 160, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 4, Color(0,0,0,255))

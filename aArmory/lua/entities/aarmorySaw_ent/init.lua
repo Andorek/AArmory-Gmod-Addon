@@ -21,24 +21,27 @@ end
 function ENT:Use(ply)
     if !IsValid(self:GetParent()) then return end
     local pEnt = self:GetParent()
+    self:SetmaxRobTime(AARMORY.Config[pEnt:GetaarmoryID()].aarmoryConfig.robTime.var)
 
     if self:GetParentAttachment() == 1 or self:GetParentAttachment() == 2 or self:GetParentAttachment() == 3 or self:GetParentAttachment() == 4 then -- Need to fix this so its dynamic later.
         if !timer.Exists("sawTimer" .. self:EntIndex()) then
-            timer.Create("sawTimer" .. self:EntIndex(), AARMORY.Settings.robTime, 1, function()
+            timer.Create("sawTimer" .. self:EntIndex(), pEnt.configTable.aarmoryConfig.robTime.var, 1, function()
                 local pEntForward = self:GetPos() + pEnt:GetAngles():Forward() * 20
 
                 local count = 1
-                for k, v in pairs(AARMORY.weaponTable) do
-                    if self:GetParentAttachment() == count then
-                        pEnt:SetNWBool("open" .. k, true)
-                        self:SetParent(nil, 0)
-                        self.sound:Stop()
-                        self:SetPos(pEntForward)
+                for k, v in SortedPairs(pEnt.configTable.weapons) do
+                    if v.useWeapon then
+                        if self:GetParentAttachment() == count then
+                            pEnt:SetNWBool("open" .. k .. tostring(pEnt), true)
+                            self:SetParent(nil, 0)
+                            self.sound:Stop()
+                            self:SetPos(pEntForward)
 
-                        pEnt:openArmory(false, pEntForward, nil, k)
-                        break
+                            pEnt:openArmory(false, pEntForward, nil, k)
+                            break
+                        end
+                        count = count + 1
                     end
-                    count = count + 1
                 end
             end)
         elseif timer.TimeLeft("sawTimer") != nil then

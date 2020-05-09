@@ -12,4 +12,5 @@ ENT.Category = "AArmory"
 
 function ENT:SetupDataTables()
     self:NetworkVar("Float", 0, "robTimer")
+    self:NetworkVar("Int", 0, "maxRobTime")
 end

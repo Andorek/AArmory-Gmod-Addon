@@ -2,7 +2,7 @@ AARMORY.Localise.armory = {}
 --== Armory Localisation ==--
 
 -- General --
-AARMORY.Localise.armory.policeArmory = "Police Armory" -- The text floating above the armory.
+AARMORY.Localise.armory.policeArmory = "Police Armory" -- The text floating above the armory, and in the gui menu.
 AARMORY.Localise.armory.notEnoughCops = "There are not enough police online!" -- Text that appears when there are not enough police online to rob the armory.
 
 -- The two options below are apart of the same string, however there is another string between them which cannot be set by the player so they are split in two. The same can be said for any two options in a similar format as the one below.
@@ -18,20 +18,24 @@ AARMORY.Localise.armory.weaponTimer1 = "You have to wait " -- When you try to gr
 AARMORY.Localise.armory.weaponTimer2 = " seconds before getting another weapon." -- (2)
 AARMORY.Localise.armory.retrieve = "Retrieving " -- The text that shows when grabbing a weapon from the armory.
 
--- When saving the armory on the map with !aarmorysave or /aarmorysave.
-AARMORY.Localise.armory.dirCreated = "Directory data/aarmory/ created."
-AARMORY.Localise.armory.fileCreated = "File data/aarmory/aarmory.txt created."
-AARMORY.Localise.armory.fileWritten = "File data/aarmory/aarmory.txt written to."
+-- Admin Panel --
+AARMORY.Localise.armory.adminPanel = "AArmory Admin Panel"
+AARMORY.Localise.armory.adminWeaponPanel = "AArmory Weapons Panel"
 
-AARMORY.Localise.armory.noArmory = "There aren't any armories to save!" -- When trying to save an armory when none are spawned.
+AARMORY.Localise.armory.jobs = "Jobs"
+AARMORY.Localise.armory.groups = "Groups"
 
--- When deleting the armory on the map with !aarmoryremove or /aarmoryremove.
-AARMORY.Localise.armory.dirDeleted = "Directory data/aarmory/ deleted."
-AARMORY.Localise.armory.fileDeleted = "File data/aarmory/aarmory.txt deleted."
+AARMORY.Localise.armory.add = "Add"
+AARMORY.Localise.armory.allowed = "Allowed"
+AARMORY.Localise.armory.remove = "Remove"
 
--- When trying to delete any armory saved on the map when there isn't one.
-AARMORY.Localise.armory.noFileToDelete = "No file to delete."
-AARMORY.Localise.armory.noDirToDelete = "No directory to delete."
+AARMORY.Localise.armory.enabled = "Enabled"
+AARMORY.Localise.armory.disabled = "Disabled"
+
+AARMORY.Localise.armory.saved1 = "AArmory with ID "
+AARMORY.Localise.armory.saved2 = "successfully saved! Armory is in "
+AARMORY.Localise.armory.removed = " removed successfully."
+
 
 
 -- Gui Mode --
@@ -70,7 +74,7 @@ AARMORY.Localise.saw.running = "Status: RUNNING" -- The text on the progress bar
 --== Misc Localisation ==--
 
 -- The below is what appears in the console when the server spawns armories on the map. The format should look like: "Spawned 'ENTITY' on map 'MAP' with position 'POSITION' and angle 'ANGLE'."
-AARMORY.Localise.console1 = "Spawned "
+AARMORY.Localise.console1 = "Spawned AArmory "
 AARMORY.Localise.console2 = " on map "
 AARMORY.Localise.console3 = " with position "
 AARMORY.Localise.console4 = " and angle "
