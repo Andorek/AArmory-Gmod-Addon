@@ -122,17 +122,19 @@ net.Receive("aarmoryClientConfig", function()
         local wName = net.ReadString()
         local wModel = net.ReadString()
         local wBool = net.ReadBool()
+        local wPos = net.ReadVector()
+        local wAng = net.ReadAngle()
         if wBool then
             clientConfig[id].weapons[wEnt] = {}
             clientConfig[id].weapons[wEnt].name = wName
             clientConfig[id].weapons[wEnt].model = wModel
+            clientConfig[id].weapons[wEnt].stencilPos = wPos
+            clientConfig[id].weapons[wEnt].stencilAng = wAng
         end
     end
-    PrintTable(clientConfig[id])
 end)
 
 function ENT:Initialize()
-    sEnt = self
     local s
     if AARMORY.Settings.useCustomSoundfile then s = AARMORY.Settings.customSoundfile else s = "ambient/alarms/alarm1.wav" end
     self.sound = CreateSound(self, s) -- This has to be clientside otherwise when a player joins afer the armory is created they will not be able to hear any alarm (Important because the armory can be saved to the map, creating the armory before any player joins).
@@ -207,7 +209,7 @@ net.Receive("aarmoryUse", function(len, p)
         adminFrame:MakePopup()
         adminFrame:SetSizable( false )
         adminFrame:SetDeleteOnClose( true )
-        adminFrame:ShowCloseButton( true )
+        adminFrame:ShowCloseButton( false )
         adminFrame:SetTitle( "" )
         adminFrame:SetDraggable( false )
         adminFrame:SetVisible( true )
@@ -459,17 +461,19 @@ net.Receive("aarmoryUse", function(len, p)
                     draw.RoundedBox( 2, w / 2, 0, w / 2, h, Color( 220, 220, 220, 255 ) )
                 end
 
-        local wHeightOffset = adminFrame:GetTall() / 5
+        local wHeightOffset = adminFrame:GetTall() / 4.5
         local wHeight = 0
         for k, v in pairs(configTable.weapons) do
             local wName = v.name
             local wAmmo = v.ammo
             local wEntity = v.entity
             local wModel = v.model
+            local posX, posY, posZ = v.stencilPos.x, v.stencilPos.y, v.stencilPos.z
+            local angPitch, angYaw, angRoll = v.stencilAng.pitch, v.stencilAng.yaw, v.stencilAng.roll
 
             local weaponFrame = vgui.Create("DFrame", weaponScroll)
             weaponFrame:SetPos(0, wHeight)
-            weaponFrame:SetSize(adminFrame:GetWide() / 2.2, adminFrame:GetTall() / 6)
+            weaponFrame:SetSize(adminFrame:GetWide() / 2.2, adminFrame:GetTall() / 5)
             weaponFrame:SetSizable( false )
             weaponFrame:SetDeleteOnClose( true )
             weaponFrame:ShowCloseButton( false )
@@ -477,14 +481,17 @@ net.Receive("aarmoryUse", function(len, p)
             weaponFrame:SetDraggable( false )
             weaponFrame.Paint = function(s, w, h)
                 draw.RoundedBox(6, 0, 0, w, h, Color(220,220,220,255)) -- Background
-                draw.SimpleTextOutlined(wName, "aarmoryFont", w / 4, h / 6, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, Color(0,0,0,255))
+                draw.SimpleTextOutlined(wName, "aarmoryFont", w / 4, h / 7, Color(255,255,255,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, Color(0,0,0,255))
                 draw.SimpleText("Entity: " .. wEntity, "aarmoryFontGui", w / 50, h / 12, Color(0,0,0,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                 draw.SimpleText("Ammo: " .. wAmmo, "aarmoryFontGui", w / 50, h / 1.08, Color(0,0,0,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+                draw.SimpleText("Pos: ", "aarmoryFontGuiBig", w / 4, h / 1.15, Color(0,0,0,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                draw.SimpleText("Ang: ", "aarmoryFontGuiBig", w / 1.7, h / 1.15, Color(0,0,0,255), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
             end
 
             local wJobComboEntry = vgui.Create("DComboBox", weaponFrame)
-                wJobComboEntry:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 2.6)
-                wJobComboEntry:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6)
+                wJobComboEntry:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 3.5)
+                wJobComboEntry:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wJobComboEntry:SetText("Jobs")
                 for a, b in pairs(v.restrictJob) do
                     if !b then
@@ -493,8 +500,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wJobComboAllowed = vgui.Create("DComboBox", weaponFrame)
-                wJobComboAllowed:SetPos(weaponFrame:GetWide() / 2.35, weaponFrame:GetTall() / 2.6)
-                wJobComboAllowed:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6)
+                wJobComboAllowed:SetPos(weaponFrame:GetWide() / 2.35, weaponFrame:GetTall() / 3.5)
+                wJobComboAllowed:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wJobComboAllowed:SetText("Allowed")
                 for a, b in pairs(v.restrictJob) do
                     if b then
@@ -503,8 +510,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wJobAddButton = vgui.Create("DButton", weaponFrame)
-                wJobAddButton:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 1.75)
-                wJobAddButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6.5)
+                wJobAddButton:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 2.2)
+                wJobAddButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wJobAddButton:SetTextColor( Color(255,255,255) )
                 wJobAddButton:SetFont( "aarmoryFontGuiBig" )
                 wJobAddButton:SetText("Add")
@@ -532,8 +539,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wJobRemoveButton = vgui.Create("DButton", weaponFrame)
-                wJobRemoveButton:SetPos(weaponFrame:GetWide() / 2.35, weaponFrame:GetTall() / 1.75)
-                wJobRemoveButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6.5)
+                wJobRemoveButton:SetPos(weaponFrame:GetWide() / 2.35, weaponFrame:GetTall() / 2.2)
+                wJobRemoveButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wJobRemoveButton:SetTextColor( Color(255,255,255) )
                 wJobRemoveButton:SetFont( "aarmoryFontGuiBig" )
                 wJobRemoveButton:SetText("Remove")
@@ -561,13 +568,13 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wGroupTextEntry = vgui.Create("DTextEntry", weaponFrame)
-                wGroupTextEntry:SetPos(weaponFrame:GetWide() / 1.65, weaponFrame:GetTall() / 2.6)
-                wGroupTextEntry:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6)
+                wGroupTextEntry:SetPos(weaponFrame:GetWide() / 1.65, weaponFrame:GetTall() / 3.5)
+                wGroupTextEntry:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wGroupTextEntry:SetText("Groups")
                 
             local wGroupComboAllowed = vgui.Create("DComboBox", weaponFrame)
-                wGroupComboAllowed:SetPos(weaponFrame:GetWide() / 1.28, weaponFrame:GetTall() / 2.6)
-                wGroupComboAllowed:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6)
+                wGroupComboAllowed:SetPos(weaponFrame:GetWide() / 1.28, weaponFrame:GetTall() / 3.5)
+                wGroupComboAllowed:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wGroupComboAllowed:SetText("Allowed")
                 for a, b in pairs(v.restrictGroup) do
                     if b then
@@ -576,8 +583,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wGroupAddButton = vgui.Create("DButton", weaponFrame)
-                wGroupAddButton:SetPos(weaponFrame:GetWide() / 1.65, weaponFrame:GetTall() / 1.75)
-                wGroupAddButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6.5)
+                wGroupAddButton:SetPos(weaponFrame:GetWide() / 1.65, weaponFrame:GetTall() / 2.2)
+                wGroupAddButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wGroupAddButton:SetTextColor( Color(255,255,255) )
                 wGroupAddButton:SetFont( "aarmoryFontGuiBig" )
                 wGroupAddButton:SetText("Add")
@@ -598,8 +605,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
                 
             local wGroupRemoveButton = vgui.Create("DButton", weaponFrame)
-                wGroupRemoveButton:SetPos(weaponFrame:GetWide() / 1.28, weaponFrame:GetTall() / 1.75)
-                wGroupRemoveButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 6.5)
+                wGroupRemoveButton:SetPos(weaponFrame:GetWide() / 1.28, weaponFrame:GetTall() / 2.2)
+                wGroupRemoveButton:SetSize(weaponFrame:GetWide() / 6, weaponFrame:GetTall() / 7)
                 wGroupRemoveButton:SetTextColor( Color(255,255,255) )
                 wGroupRemoveButton:SetFont( "aarmoryFontGuiBig" )
                 wGroupRemoveButton:SetText("Remove")
@@ -620,8 +627,8 @@ net.Receive("aarmoryUse", function(len, p)
                 end
 
             local wAmmoTextEntry = vgui.Create("DTextEntry", weaponFrame)
-                wAmmoTextEntry:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 1.3)
-                wAmmoTextEntry:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 6)
+                wAmmoTextEntry:SetPos(weaponFrame:GetWide() / 4, weaponFrame:GetTall() / 1.6)
+                wAmmoTextEntry:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 7)
                 wAmmoTextEntry:SetText("Ammo Amount")
                 wAmmoTextEntry.OnChange = function()
                     local ammoAmount = wAmmoTextEntry:GetValue()
@@ -629,18 +636,74 @@ net.Receive("aarmoryUse", function(len, p)
                 end 
             
             local wShipmentTextEntry = vgui.Create("DTextEntry", weaponFrame)
-                wShipmentTextEntry:SetPos(weaponFrame:GetWide() / 2.05, weaponFrame:GetTall() / 1.3)
-                wShipmentTextEntry:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 6)
+                wShipmentTextEntry:SetPos(weaponFrame:GetWide() / 2.05, weaponFrame:GetTall() / 1.6)
+                wShipmentTextEntry:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 7)
                 wShipmentTextEntry:SetText("Shipment Amount")
                 wShipmentTextEntry.OnChange = function()
                     local shipmentAmount = wShipmentTextEntry:GetValue()
                     v.shipmentAmount = shipmentAmount
                 end 
 
+            local wPosX = vgui.Create("DTextEntry", weaponFrame)
+                wPosX:SetPos(weaponFrame:GetWide() / 3.2, weaponFrame:GetTall() / 1.22)
+                wPosX:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wPosX:SetText(posX)
+
+            local wPosY = vgui.Create("DTextEntry", weaponFrame)
+                wPosY:SetPos(weaponFrame:GetWide() / 2.5, weaponFrame:GetTall() / 1.22)
+                wPosY:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wPosY:SetText(posY)
+            
+            local wPosZ = vgui.Create("DTextEntry", weaponFrame)
+                wPosZ:SetPos(weaponFrame:GetWide() / 2.055, weaponFrame:GetTall() / 1.22)
+                wPosZ:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wPosZ:SetText(posZ)
+
+            local wAngPitch = vgui.Create("DTextEntry", weaponFrame)
+                wAngPitch:SetPos(weaponFrame:GetWide() / 1.52, weaponFrame:GetTall() / 1.22)
+                wAngPitch:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wAngPitch:SetText(angPitch)
+
+            local wAngYaw = vgui.Create("DTextEntry", weaponFrame)
+                wAngYaw:SetPos(weaponFrame:GetWide() / 1.34, weaponFrame:GetTall() / 1.22)
+                wAngYaw:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wAngYaw:SetText(angYaw)
+            
+            local wAngRoll = vgui.Create("DTextEntry", weaponFrame)
+                wAngRoll:SetPos(weaponFrame:GetWide() / 1.2, weaponFrame:GetTall() / 1.22)
+                wAngRoll:SetSize(weaponFrame:GetWide() / 12, weaponFrame:GetTall() / 8)
+                wAngRoll:SetText(angRoll)
+
+            wPosX.OnChange = function()
+                posX = tonumber(wPosX:GetValue())
+                v.stencilPos = Vector(posX, posY, posZ)
+            end
+            wPosY.OnChange = function()
+                posY = tonumber(wPosY:GetValue())
+                v.stencilPos = Vector(posX, posY, posZ)
+            end
+            wPosZ.OnChange = function()
+                posZ = tonumber(wPosZ:GetValue())
+                v.stencilPos = Vector(posX, posY, posZ)
+            end
+
+            wAngPitch.OnChange = function()
+                angPitch = tonumber(wAngPitch:GetValue())
+                v.stencilAng = Angle(angPitch, angYaw, angRoll)
+            end
+            wAngYaw.OnChange = function()
+                angYaw = tonumber(wAngYaw:GetValue())
+                v.stencilAng = Angle(angPitch, angYaw, angRoll)
+            end
+            wAngRoll.OnChange = function()
+                angRoll = tonumber(wAngRoll:GetValue())
+                v.stencilAng = Angle(angPitch, angYaw, angRoll)
+            end
+
             local wColor = Color(50,255,50,255)
             local wButton = vgui.Create("DButton", weaponFrame)
-                wButton:SetPos(weaponFrame:GetWide() / 1.37, weaponFrame:GetTall() / 1.3)
-                wButton:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 6)
+                wButton:SetPos(weaponFrame:GetWide() / 1.37, weaponFrame:GetTall() / 1.6)
+                wButton:SetSize(weaponFrame:GetWide() / 4.5, weaponFrame:GetTall() / 7)
                 wButton:SetTextColor( Color(255,255,255) )
                 wButton:SetFont( "aarmoryFontGuiBig" )
                 wButton.DoClick = function()
@@ -980,8 +1043,8 @@ local function drawStencil()
                         --local dOffsetY = 0
                         --local dOffsetZ = 0
                         for k, v in SortedPairs(clientConfig[ent:GetaarmoryID()].weapons) do
-                            local offsetPitch, offsetYaw, offsetRoll = v.pitch or 0, v.yaw or 0, v.roll or 0
-                            local offsetX, offsetY, offsetZ = v.posX or 0, v.posY or 0, v.posZ or 0
+                            local offsetPitch, offsetYaw, offsetRoll = v.stencilAng.pitch or 0, v.stencilAng.yaw or 0, v.stencilAng.roll or 0
+                            local offsetX, offsetY, offsetZ = v.stencilPos.x or 0, v.stencilPos.y or 0, v.stencilPos.z or 0
                             
                             ang:RotateAroundAxis(ent:GetAngles():Right(), offsetPitch + globalPitch)
                             ang:RotateAroundAxis(ent:GetAngles():Up(), offsetYaw + globalYaw)

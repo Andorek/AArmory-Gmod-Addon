@@ -98,6 +98,8 @@ local function makeConfig()
             configTable["Default"].weapons[v.entity].useWeapon = false
             configTable["Default"].weapons[v.entity].restrictJob = {}
             configTable["Default"].weapons[v.entity].restrictGroup = {}
+            configTable["Default"].weapons[v.entity].stencilPos = Vector(0, 0, 0)
+            configTable["Default"].weapons[v.entity].stencilAng = Angle(0, 0, 0)
             for a, b in pairs(RPExtraTeams) do
                 configTable["Default"].weapons[v.entity].restrictJob[b.command] = false
             end

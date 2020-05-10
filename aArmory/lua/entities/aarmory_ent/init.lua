@@ -17,6 +17,8 @@ local function networkConfig(ent, ply) -- Only sends the stuff needed clientside
             net.WriteString(v.name)
             net.WriteString(v.model)
             net.WriteBool(v.useWeapon)
+            net.WriteVector(v.stencilPos)
+            net.WriteAngle(v.stencilAng)
         end
     net.Send(ply)
 end
@@ -163,13 +165,13 @@ local function ammoTimeLimit(ply, weapon, id)
 end
 
 -- Taken from a ULX spawnshipment addon and adjusted
-local function aarmorySpawnShipment( ply, name, amount, entity, spawnPos )
-    local found, foundKey = DarkRP.getShipmentByName( name ) -- The weapon must be in shipments.lua
+local function aarmorySpawnShipment( ply, id, entity, spawnPos )
+    local found, foundKey = DarkRP.getShipmentByName( AARMORY.Config[id].weapons[entity].name ) -- The weapon must be in shipments.lua
         if isnumber( foundKey ) then
             local crate = ents.Create( found.shipmentClass or "spawned_shipment" )
             crate.SID = ply.SID
             crate:Setowning_ent( ply )
-            crate:SetContents( foundKey, amount or 10 )
+            crate:SetContents( foundKey, AARMORY.Config[id].weapons[entity].name )
 
             crate:SetPos( spawnPos )
             crate.nodupe = true
@@ -215,7 +217,7 @@ function ENT:openArmory(isRobbing, sawPos, ply, weapon) -- A mess of timers, but
             timer.Start("openTimer" .. weapon)
         end
     else
-        aarmorySpawnShipment( ply, self.configTable.weapons[weapon].name, self.configTable.weapons[weapon].amount, weapon, self:GetPos() + self:GetAngles():Forward() * 10 )
+        aarmorySpawnShipment( ply, self:GetaarmoryID(), weapon, self:GetPos() + self:GetAngles():Forward() * 10 )
         if IsValid(curDoorEnt[weapon].ent) then
             curDoorEnt[weapon].ent:Remove()
         end
