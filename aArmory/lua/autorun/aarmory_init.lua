@@ -8,6 +8,7 @@ AddCSLuaFile("aarmory_localisation.lua")
 include("aarmory_config.lua")
 include("aarmory_localisation.lua")
 
+if (SERVER) then
 local function makeConfig()
     if !file.Exists("aarmory/config.txt", "DATA") then
         local configTable = {}
@@ -140,3 +141,4 @@ local function aarmorySpawn()
 
 end
 hook.Add( "InitPostEntity", "aarmorySpawn", aarmorySpawn )
+end
